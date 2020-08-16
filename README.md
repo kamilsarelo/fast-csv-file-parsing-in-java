@@ -6,7 +6,7 @@ With using `java.io.BufferedReader.readLine()`, replacing `java.text.SimpleDateF
 
 methods: | `read1()` + `parse1()` | `read4()` + `parse10()`
 --: | :--: | :--:
-average read per pass: | 668 ms (worst) | **137 ms (best)**
+average read per pass: | 668 ms | **137 ms**
 percent change: | baseline | **-79,4%**
 
 ## Data
@@ -37,18 +37,25 @@ For the benchmark numbers I used:
 - preceding initial pass with the aim to warm up the JVM and let the JIT optimize things
 - additional 10 passes in total after the initial pass to come up with the benchmark numbers
 
-The corresponding Java code including the read/parse-optimizations can be found in the [CsvReadParsePerformance](/src/CsvReadParsePerformance.java) class.
+## Code and dependencies
 
-## Dependencies
+The corresponding Java code including the read/parse-optimizations can be found in the following classes:
+- [CsvReadParsePerformance](/src/CsvReadParsePerformance.java) contains all read/parse-methods and the benchmarking-code
+- [CsvReadParsePerformanceTest](/src/CsvReadParsePerformanceTest.java) tests all read/parse-methods
+- [Constants](/src/Constants.java) contains the necessary constants for the read/parse-methods
+- [Bar](/src/Bar.java) contains the OHLC bar data structure
 
+The code depends on:
 - the [Apache Commons Mathematics Library](https://commons.apache.org/proper/commons-math/) for calculating the benchmark numbers
-- other than that everything is pure Java standard library
+- the [JUnit unit testing framework](https://junit.org/) for testing
+
+Other than that everything is pure Java standard library.
 
 ---
 
 ## Improving reading performance
 
-**Reading performance comparison:**
+Here is the **reading performance comparison** of the different approaches that are described in detail afterwards:
 
 methods: | `read1()` | `read2()` | `read3()` | `read4()`
 --: | :--: | :--: | :--: | :--:
@@ -60,7 +67,7 @@ percent change: | baseline | +3,8% | +3,8% | **-29,1%**
 For the reading-part let's start with a straightforward approach provided by the Java NIO's `Files` class:
 
 ```java
-private static final List<String> read1(final Path path) {
+public static final List<String> read1(final Path path) {
 	try {
 		return Files.readAllLines(path);
 	} catch (final Throwable t) {
@@ -77,7 +84,7 @@ private static final List<String> read1(final Path path) {
 However, the Java NIO's `Files` class offers other methods for reading all lines in a file, so let's check them out too:
 
 ```java
-private static final List<String> read2(final Path path) {
+public static final List<String> read2(final Path path) {
 	try {
 		return Files.lines(path).collect(Collectors.toList());
 	} catch (final Throwable t) {
@@ -88,7 +95,7 @@ private static final List<String> read2(final Path path) {
 ```
 
 ```java
-private static final List<String> read3(final Path path) {
+public static final List<String> read3(final Path path) {
 	try (BufferedReader reader = Files.newBufferedReader(path)) {
 		return reader.lines().collect(Collectors.toList());
 	} catch (final Throwable t) {
@@ -105,10 +112,10 @@ private static final List<String> read3(final Path path) {
 Finally, let's also have a look at good old buffered reading using Java IO's `BufferedReader`:
 
 ```java
-private static final List<String> read4(final Path path) {
+public static final List<String> read4(final Path path) {
 	final LinkedList<String> lines = new LinkedList<>();
 	String line;
-	try (FileReader reader = new FileReader(path.toFile()); BufferedReader bufferedReader = new BufferedReader(reader)) {
+	try (BufferedReader bufferedReader = new BufferedReader(new FileReader(path.toFile()))) {
 		while ((line = bufferedReader.readLine()) != null) {
 			lines.add(line);
 		}
@@ -125,10 +132,10 @@ private static final List<String> read4(final Path path) {
 
 ## Improving parsing performance
 
-The goal in the parsing-part is to convert every read line from the CSV-file to an instance of the OHLC `Bar` class in the fastest possible manner and return a list of these - corresponding to the CSV-file's OHLC bar data. The full Java code can be found in the [CsvReadParsePerformance](/src/CsvReadParsePerformance.java) class.
+The goal in the parsing-part is to convert every read line from the CSV-file to an instance of the OHLC `Bar` class in the fastest possible manner and return a list of these - corresponding to the CSV-file's OHLC bar data:
 
 ```java
-private static final class Bar {
+public final class Bar {
 
 	public final long time;
 	public final double open;
@@ -140,7 +147,7 @@ private static final class Bar {
 	...
 }
 ```
-**Parsing performance comparison:**
+Here is the **parsing performance comparison** of the different approaches that are described in detail afterwards:
 
 methods: | `parse1()` | `parse2()` | `parse3()` | `parse4()` | `parse5()` | `parse6()` | `parse7()` | `parse8()` | `parse9()` | `parse10()`
 --: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--:
@@ -152,7 +159,7 @@ percent change: | baseline | -1,2% | -63,6% | -69,4% | -68,8% | -71,3% | -79,2%
 Let's start with a straightforward approach provided by the Java standard library's `SimpleDateFormat` and `Double` classes:
 
 ```java
-private static final SimpleDateFormat FORMAT_DATE = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
+public static final SimpleDateFormat FORMAT_DATE = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
 static {
 	FORMAT_DATE.setTimeZone(TimeZone.getTimeZone("UTC"));
 }
@@ -160,10 +167,10 @@ static {
 The parsing method `parse1()` splits the read line by commas and then uses `SimpleDateFormat` and `Double` to parse the time, prices, and volume:
 
 ```java
-private static final Bar parse1(final String line) throws NumberFormatException, ParseException {
+public static final Bar parse1(final String line) throws NumberFormatException, ParseException {
 	final String[] strings = line.split(",", -1); // -1 to include empty strings
 	return new Bar(
-			FORMAT_DATE.parse(strings[0]).getTime(), // milliseconds since epoch
+			Constants.FORMAT_DATE.parse(strings[0]).getTime(), // milliseconds since epoch
 			Double.parseDouble(strings[1]), // open
 			Double.parseDouble(strings[2]), // high
 			Double.parseDouble(strings[3]), // low
@@ -195,10 +202,10 @@ private static final void findIndeces(final String line, final int[] lineIndeces
 After the positions are located, the substrings are passed to the parsing methods in the new parsing method `parse2()`:
 
 ```java
-private static final Bar parse2(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
+public static final Bar parse2(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
 	findIndeces(line, lineIndeces);
 	return new Bar(
-			FORMAT_DATE.parse(line.substring(0, 19)).getTime(), // milliseconds since epoch
+			Constants.FORMAT_DATE.parse(line.substring(0, 19)).getTime(), // milliseconds since epoch
 			Double.parseDouble(line.substring(lineIndeces[0], lineIndeces[1])), // open
 			Double.parseDouble(line.substring(lineIndeces[2], lineIndeces[3])), // high
 			Double.parseDouble(line.substring(lineIndeces[4], lineIndeces[5])), // low
@@ -229,33 +236,33 @@ private static final long parseStringToMillisSinceEpoch1(final String string) {
 
 ```java
 private static final long toMillisSinceEpoch(final int year, final int month, final int date, final int hrs, final int min, final int sec) {
-	return (year - 1970) * MILLIS_PER_YEAR_365 // epoch is 1970-01-01 00:00:00 GMT
-			+ LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE.get(year - 1) * MILLIS_PER_DAY // only till last year
-			+ (month > 2 && LEAP_YEAR_INCLUSIVE.contains(year) ? MILLIS_PER_DAY : 0) // this year is leap year AND after February
-			+ DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE.get(month - 1) * MILLIS_PER_DAY
-			+ (date - 1) * MILLIS_PER_DAY
-			+ hrs * MILLIS_PER_HOUR
-			+ min * MILLIS_PER_MINUTE
-			+ sec * MILLIS_PER_SECOND;
+	return (year - 1970) * Constants.MILLIS_PER_YEAR_365 // epoch is 1970-01-01 00:00:00 GMT
+			+ Constants.LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE.get(year - 1) * Constants.MILLIS_PER_DAY // only till last year
+			+ (month > 2 && Constants.LEAP_YEAR_INCLUSIVE.contains(year) ? Constants.MILLIS_PER_DAY : 0) // this year is leap year AND after February
+			+ Constants.DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE.get(month - 1) * Constants.MILLIS_PER_DAY
+			+ (date - 1) * Constants.MILLIS_PER_DAY
+			+ hrs * Constants.MILLIS_PER_HOUR
+			+ min * Constants.MILLIS_PER_MINUTE
+			+ sec * Constants.MILLIS_PER_SECOND;
 }
 ```
 
 To do so `toMillisSinceEpoch()` requires a bunch constants that are defined and calculated only once at the initilization of the class. The constants enable performant time calculation and are especially important regarding leap years:
 
 ```java
-private static final int HOURS_PER_DAY = 24;
-private static final int MINUTES_PER_HOUR = 60;
-private static final int SECONDS_PER_MINUTE = 60;
-private static final int SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR;
-private static final int SECONDS_PER_DAY = SECONDS_PER_HOUR * HOURS_PER_DAY;
-private static final long MILLIS_PER_SECOND = 1000L;
-private static final long MILLIS_PER_MINUTE = SECONDS_PER_MINUTE * MILLIS_PER_SECOND;
-private static final long MILLIS_PER_HOUR = SECONDS_PER_HOUR * MILLIS_PER_SECOND;
-private static final long MILLIS_PER_DAY = SECONDS_PER_DAY * MILLIS_PER_SECOND;
-private static final long MILLIS_PER_YEAR_365 = 365 * MILLIS_PER_DAY;
+public static final int HOURS_PER_DAY = 24;
+public static final int MINUTES_PER_HOUR = 60;
+public static final int SECONDS_PER_MINUTE = 60;
+public static final int SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR;
+public static final int SECONDS_PER_DAY = SECONDS_PER_HOUR * HOURS_PER_DAY;
+public static final long MILLIS_PER_SECOND = 1000L;
+public static final long MILLIS_PER_MINUTE = SECONDS_PER_MINUTE * MILLIS_PER_SECOND;
+public static final long MILLIS_PER_HOUR = SECONDS_PER_HOUR * MILLIS_PER_SECOND;
+public static final long MILLIS_PER_DAY = SECONDS_PER_DAY * MILLIS_PER_SECOND;
+public static final long MILLIS_PER_YEAR_365 = 365 * MILLIS_PER_DAY;
 
-private static final Set<Integer> LEAP_YEAR_INCLUSIVE;
-private static final Map<Integer, Integer> LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE;
+public static final Set<Integer> LEAP_YEAR_INCLUSIVE;
+public static final Map<Integer, Integer> LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE;
 static {
 	final HashSet<Integer> leapYears = new HashSet<>();
 	final HashMap<Integer, Integer> leapDaysSince = new HashMap<>();
@@ -271,7 +278,7 @@ static {
 	LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE = Collections.unmodifiableMap(leapDaysSince);
 }
 
-private static final Map<Integer, Integer> DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE;
+public static final Map<Integer, Integer> DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE;
 static {
 	final HashMap<Integer, Integer> map = new HashMap<>();
 	map.put(0, 0);
@@ -294,7 +301,7 @@ static {
 The new parsing method `parse3()` calls `parseStringToMillisSinceEpoch1()` to parse the time:
 
 ```java
-private static final Bar parse3(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
+public static final Bar parse3(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
 	findIndeces(line, lineIndeces);
 	return new Bar(
 			parseStringToMillisSinceEpoch1(line), // milliseconds since epoch
@@ -327,7 +334,7 @@ private static final long parseStringToMillisSinceEpoch2(final String string) {
 `parseStringToInteger1()` parses the string to integer by using ASCII character numbers and decimal power multiplication:
 
 ```java
-private static int parseStringToInteger1(final String string, final int indexBegin, final int indexEnd) {
+private static final int parseStringToInteger1(final String string, final int indexBegin, final int indexEnd) {
 	int number = 0;
 	for (int index = indexBegin; index < indexEnd; index++) {
 		number = number * 10 + string.charAt(index) - 48; // numbers start at 48 in ASCII
@@ -339,7 +346,7 @@ private static int parseStringToInteger1(final String string, final int indexBeg
 The new parsing method `parse4()` calls `parseStringToMillisSinceEpoch2()` to parse the time:
 
 ```java
-private static final Bar parse4(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
+public static final Bar parse4(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
 	findIndeces(line, lineIndeces);
 	return new Bar(
 			parseStringToMillisSinceEpoch2(line), // milliseconds since epoch
@@ -358,7 +365,7 @@ private static final Bar parse4(final String line, final int[] lineIndeces) thro
 Based on **Step 4** let's check if [replacing the multiplication operator](https://www.geeksforgeeks.org/multiply-number-10-without-using-multiplication-operator/) in `number = number * 10 + string.charAt(index) - 48;` can improve the performance somehow:
 
 ```java
-private static int parseStringToInteger2(final String string, final int indexBegin, final int indexEnd) {
+private static final int parseStringToInteger2(final String string, final int indexBegin, final int indexEnd) {
 	int number = 0;
 	for (int index = indexBegin; index < indexEnd; index++) {
 		number = (number << 1) + (number << 3) + string.charAt(index) - 48; // numbers start at 48 in ASCII
@@ -376,7 +383,7 @@ The new parsing method `parse5()` calls another new method `parseStringToMillisS
 **Now let's focus on optimizing the parsing of the prices and volume (`double`)**, let's check if replacing `Double.parseDouble()` can improve the performance somehow. Since there are know [Java issues](https://stackoverflow.com/questions/179427/how-to-resolve-a-java-rounding-double-issue) [and errors with rounding doubles](https://www.geeksforgeeks.org/rounding-off-errors-java/) and using [double for monetary calculations is troublesome](https://dzone.com/articles/never-use-float-and-double-for-monetary-calculatio) let's first try to use `BigDecimal` instead of `Double.parseDouble()` in the new method `parseStringToDouble1()`. The method builds two variables (`long`) from the passed string (integer part and decimal part) and uses decimal power multiplication and `BigDecimal` to return the actual combined number (`double`):
 
 ```java
-private static double parseStringToDouble1(final String string) {
+private static final double parseStringToDouble1(final String string) {
 	int indexOfDelimeter = string.indexOf(".");
 	if (indexOfDelimeter < 1) {
 		indexOfDelimeter = string.length();
@@ -407,7 +414,7 @@ private static double parseStringToDouble1(final String string) {
 The new parsing method `parse6()` calls `parseStringToDouble1()` to parse the prices and volume:
 
 ```java
-private static final Bar parse6(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
+public static final Bar parse6(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
 	findIndeces(line, lineIndeces);
 	return new Bar(
 			parseStringToMillisSinceEpoch3(line), // milliseconds since epoch
@@ -426,7 +433,7 @@ private static final Bar parse6(final String line, final int[] lineIndeces) thro
 Based on **Step 6** let's check if replacing `BigDecimal` can improve the performance somehow. The new parsing method `parseStringToDouble2()` builds a dividend (`long`) and a divisor (`double`) from the passed string by using ASCII character numbers and decimal power multiplication. The dividend is the number without any decimal part. The divisor represents the decimal power of the dividend. The retuned actual number (`double`) is the quotient of the dividend and divisor:
 
 ```java
-private static double parseStringToDouble2(final String string, final int indexBegin, final int indexEnd) {
+private static final double parseStringToDouble2(final String string, final int indexBegin, final int indexEnd) {
 	long dividend = 0;
 	double divisor = 1;
 	for (int index = indexBegin; index < indexEnd; index++) {
@@ -444,7 +451,7 @@ private static double parseStringToDouble2(final String string, final int indexB
 The new parsing method `parse7()` calls `parseStringToDouble2()` to parse the prices and volume:
 
 ```java
-private static final Bar parse7(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
+public static final Bar parse7(final String line, final int[] lineIndeces) throws NumberFormatException, ParseException {
 	findIndeces(line, lineIndeces);
 	return new Bar(
 			parseStringToMillisSinceEpoch3(line), // milliseconds since epoch
@@ -463,7 +470,7 @@ private static final Bar parse7(final String line, final int[] lineIndeces) thro
 Based on **Step 7** let's check if replacing `Math.pow()` with decimal power multiplication can improve the performance somehow:
 
 ```java
-private static double parseStringToDouble3(final String string, final int indexBegin, final int indexEnd) {
+private static final double parseStringToDouble3(final String string, final int indexBegin, final int indexEnd) {
 	long dividend = 0;
 	double divisor = 1;
 	for (int index = indexBegin; index < indexEnd; index++) {
@@ -490,7 +497,7 @@ The new parsing method `parse8()` calls `parseStringToDouble3()` to parse the pr
 Based on **Step 8** let's check if [replacing the multiplication operator](https://www.geeksforgeeks.org/multiply-number-10-without-using-multiplication-operator/) in `divisor *= 10;` and `dividend = dividend * 10 + (character - 48);` can improve the performance somehow:
 
 ```java
-private static double parseStringToDouble4(final String string, final int indexBegin, final int indexEnd) {
+private static final double parseStringToDouble4(final String string, final int indexBegin, final int indexEnd) {
 	long dividend = 0;
 	long divisor = 1;
 	for (int index = indexBegin; index < indexEnd; index++) {
@@ -516,7 +523,7 @@ The new parsing method `parse9()` calls `parseStringToDouble4()` to parse the pr
 Based on **Step 8** let's finally check if replacing decimal power multiplication with a [faster approach](https://codingforspeed.com/using-faster-integer-power-in-java/) can improve the performance somehow:
 
 ```java
-private static double parseStringToDouble5(final String string, final int indexBegin, final int indexEnd) {
+private static final double parseStringToDouble5(final String string, final int indexBegin, final int indexEnd) {
 	long dividend = 0;
 	double divisor = 1;
 	for (int index = indexBegin; index < indexEnd; index++) {
@@ -544,4 +551,4 @@ The new parsing method `parse10()` calls `parseStringToDouble5()` to parse the p
 
 **`parse10()`** returns an average parsing performance of **69 ms per pass** which is a final slight improvement compared to **`parse8()`** and **`parse9()`** so stick with this approach.
 
-**Step 10** was my final step in the series of parsing improvements. However, another idea to even further bring down the execution time would be for example reading and parsing the CSV-files in multiple parallel threads.
+**Step 10** is my final step and concludes the series of parsing improvements. However, another idea to even further bring down the execution time would be for example reading and parsing the CSV-files in multiple parallel threads.
