@@ -1,62 +1,30 @@
+package com.kamilsarelo.csv;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.Year;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TimeZone;
-import java.util.function.Function;
+import java.util.ListIterator;
 import java.util.stream.Collectors;
 import org.apache.commons.math3.stat.descriptive.SummaryStatistics;
 
-public class DataUtilsPerformance {
-
-	// constants ///////////////////////////////////////////////////////////////////////////////////
-
-	private static final Path DIRECTORY = Path.of(
-			System.getProperty("user.dir"),
-			"CSV");
-
-	private static final Path[] PATHS = new Path[] {
-			DIRECTORY.resolve("EURUSD_1 Min_Ask_2005.01.01_2006.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Bid_2005.01.01_2006.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Ask_2006.01.01_2007.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Bid_2006.01.01_2007.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Ask_2007.01.01_2008.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Bid_2007.01.01_2008.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Ask_2008.01.01_2009.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Bid_2008.01.01_2009.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Ask_2009.01.01_2010.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Bid_2009.01.01_2010.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Ask_2010.01.01_2011.01.01.csv"),
-			DIRECTORY.resolve("EURUSD_1 Min_Bid_2010.01.01_2011.01.01.csv"),
-	};
-
-	private static final SimpleDateFormat FORMAT_DATE = new SimpleDateFormat("yyyy.MM.dd HH:mm:ss");
-	static {
-		FORMAT_DATE.setTimeZone(TimeZone.getTimeZone("UTC"));
-	}
+public class CsvReadParsePerformance {
 
 	// main method /////////////////////////////////////////////////////////////////////////////////
 
-	public static void main(
+	public static final void main(
 			final String[] args) {
 
 		// warm-up /////////////////////////////////////////////////////////////////////////////////
 
-		Arrays.stream(PATHS)
+		Arrays.stream(Constants.PATHS)
 				.forEach(path -> {
 					readAndParseWithStatistics(
 							path,
@@ -72,7 +40,7 @@ public class DataUtilsPerformance {
 		final SummaryStatistics statisticsTotal = new SummaryStatistics();
 
 		for (int pass = 0; pass < 10; pass++) {
-			for (final Path path : PATHS) {
+			for (final Path path : Constants.PATHS) {
 				readAndParseWithStatistics(
 						path,
 						statisticsRead,
@@ -97,7 +65,7 @@ public class DataUtilsPerformance {
 		System.out.println("  avg = " + (int) statisticsTotal.getMean() + " ms");
 	}
 
-	// methods /////////////////////////////////////////////////////////////////////////////////////
+	// helper methods //////////////////////////////////////////////////////////////////////////////
 
 	private static final void readAndParseWithStatistics(
 			final Path path,
@@ -126,7 +94,9 @@ public class DataUtilsPerformance {
 
 			final long timeParseBegin = System.currentTimeMillis();
 
-			for (final String line : lines) {
+			//for (final String line : lines) {
+			for (final ListIterator<String> linesIterator = lines.listIterator(); linesIterator.hasNext();) {
+				final String line = linesIterator.next();
 				if (line.isBlank()) {
 					continue;
 				}
@@ -155,65 +125,9 @@ public class DataUtilsPerformance {
 		}
 	}
 
-	private static final void checkDataEqualityOfParse() {
-		try {
-			final List<String> lines = read4(PATHS[0]);
-			lines.remove(0);
-
-			final ArrayList<Bar> data1 = new ArrayList<>(lines.size());
-			for (final String line : lines) {
-				if (line.isBlank()) {
-					continue;
-				}
-				data1.add(parse1(line));
-			}
-
-			final Function<Bar, String> functionBar = bar -> FORMAT_DATE.format(new Date(bar.time)) + ","
-					+ bar.open + ","
-					+ bar.high + ","
-					+ bar.low + ","
-					+ bar.close + ","
-					+ bar.volume;
-
-			final ArrayList<Bar> data2 = new ArrayList<>(lines.size());
-			final int[] lineIndeces = new int[10];
-			for (final String line : lines) {
-				if (line.isBlank()) {
-					continue;
-				}
-//				data2.add(parse2(line, lineIndeces));
-//				data2.add(parse3(line, lineIndeces));
-//				data2.add(parse4(line, lineIndeces));
-//				data2.add(parse5(line, lineIndeces));
-//				data2.add(parse6(line, lineIndeces));
-//				data2.add(parse7(line, lineIndeces));
-//				data2.add(parse8(line, lineIndeces));
-//				data2.add(parse9(line, lineIndeces));
-				data2.add(parse10(line, lineIndeces));
-			}
-
-			boolean ok = true;
-			for (int index = 0; index < lines.size(); index++) {
-				final String string1 = functionBar.apply(data1.get(index));
-				final String string2 = functionBar.apply(data2.get(index));
-				if (!string1.equals(string2)) {
-					ok = false;
-					System.out.println("mismatch:");
-					System.out.println(string1);
-					System.out.println(string2);
-				}
-			}
-			if (ok) {
-				System.out.println("everything matches");
-			}
-		} catch (final Throwable t) {
-			t.printStackTrace();
-		}
-	}
-
 	// reading methods /////////////////////////////////////////////////////////////////////////////
 
-	private static final List<String> read1(
+	public static final List<String> read1(
 			final Path path) {
 
 		try {
@@ -224,7 +138,7 @@ public class DataUtilsPerformance {
 		return Collections.<String> emptyList();
 	}
 
-	private static final List<String> read2(
+	public static final List<String> read2(
 			final Path path) {
 
 		try {
@@ -235,7 +149,7 @@ public class DataUtilsPerformance {
 		return Collections.<String> emptyList();
 	}
 
-	private static final List<String> read3(
+	public static final List<String> read3(
 			final Path path) {
 
 		try (BufferedReader reader = Files.newBufferedReader(path)) {
@@ -246,12 +160,13 @@ public class DataUtilsPerformance {
 		return Collections.<String> emptyList();
 	}
 
-	private static final List<String> read4(
+	public static final List<String> read4(
 			final Path path) {
 
 		final LinkedList<String> lines = new LinkedList<>();
+		// slightly slower: final ArrayList<String> lines = new ArrayList<>(500_000);
 		String line;
-		try (FileReader reader = new FileReader(path.toFile()); BufferedReader bufferedReader = new BufferedReader(reader)) {
+		try (BufferedReader bufferedReader = new BufferedReader(new FileReader(path.toFile()))) {
 			while ((line = bufferedReader.readLine()) != null) {
 				lines.add(line);
 			}
@@ -263,13 +178,13 @@ public class DataUtilsPerformance {
 
 	// parsing methods /////////////////////////////////////////////////////////////////////////////
 
-	private static final Bar parse1(
+	public static final Bar parse1(
 			final String line)
 			throws NumberFormatException, ParseException {
 
 		final String[] strings = line.split(",", -1); // -1 to include empty strings
 		return new Bar(
-				FORMAT_DATE.parse(strings[0]).getTime(), // milliseconds since epoch
+				Constants.FORMAT_DATE.parse(strings[0]).getTime(), // milliseconds since epoch
 				Double.parseDouble(strings[1]), // open
 				Double.parseDouble(strings[2]), // high
 				Double.parseDouble(strings[3]), // low
@@ -292,14 +207,14 @@ public class DataUtilsPerformance {
 		lineIndeces[9] = line.length();
 	}
 
-	private static final Bar parse2(
+	public static final Bar parse2(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
 
 		findIndeces(line, lineIndeces);
 		return new Bar(
-				FORMAT_DATE.parse(line.substring(0, 19)).getTime(), // milliseconds since epoch
+				Constants.FORMAT_DATE.parse(line.substring(0, 19)).getTime(), // milliseconds since epoch
 				Double.parseDouble(line.substring(lineIndeces[0], lineIndeces[1])), // open
 				Double.parseDouble(line.substring(lineIndeces[2], lineIndeces[3])), // high
 				Double.parseDouble(line.substring(lineIndeces[4], lineIndeces[5])), // low
@@ -307,7 +222,7 @@ public class DataUtilsPerformance {
 				Double.parseDouble(line.substring(lineIndeces[8], lineIndeces[9]))); // volume
 	}
 
-	private static final Bar parse3(
+	public static final Bar parse3(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
@@ -322,7 +237,7 @@ public class DataUtilsPerformance {
 				Double.parseDouble(line.substring(lineIndeces[8], lineIndeces[9]))); // volume
 	}
 
-	private static final Bar parse4(
+	public static final Bar parse4(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
@@ -337,7 +252,7 @@ public class DataUtilsPerformance {
 				Double.parseDouble(line.substring(lineIndeces[8], lineIndeces[9]))); // volume
 	}
 
-	private static final Bar parse5(
+	public static final Bar parse5(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
@@ -352,7 +267,7 @@ public class DataUtilsPerformance {
 				Double.parseDouble(line.substring(lineIndeces[8], lineIndeces[9]))); // volume
 	}
 
-	private static final Bar parse6(
+	public static final Bar parse6(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
@@ -367,7 +282,7 @@ public class DataUtilsPerformance {
 				parseStringToDouble1(line.substring(lineIndeces[8], lineIndeces[9]))); // volume
 	}
 
-	private static final Bar parse7(
+	public static final Bar parse7(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
@@ -382,7 +297,7 @@ public class DataUtilsPerformance {
 				parseStringToDouble2(line, lineIndeces[8], lineIndeces[9])); // volume
 	}
 
-	private static final Bar parse8(
+	public static final Bar parse8(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
@@ -397,7 +312,7 @@ public class DataUtilsPerformance {
 				parseStringToDouble3(line, lineIndeces[8], lineIndeces[9])); // volume
 	}
 
-	private static final Bar parse9(
+	public static final Bar parse9(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
@@ -412,7 +327,7 @@ public class DataUtilsPerformance {
 				parseStringToDouble4(line, lineIndeces[8], lineIndeces[9])); // volume
 	}
 
-	private static final Bar parse10(
+	public static final Bar parse10(
 			final String line,
 			final int[] lineIndeces)
 			throws NumberFormatException, ParseException {
@@ -429,54 +344,6 @@ public class DataUtilsPerformance {
 
 	// String to milliseconds parsing methods //////////////////////////////////////////////////////
 
-	private static final int HOURS_PER_DAY = 24;
-	private static final int MINUTES_PER_HOUR = 60;
-	//private static final int MINUTES_PER_DAY = MINUTES_PER_HOUR * HOURS_PER_DAY;
-	private static final int SECONDS_PER_MINUTE = 60;
-	private static final int SECONDS_PER_HOUR = SECONDS_PER_MINUTE * MINUTES_PER_HOUR;
-	private static final int SECONDS_PER_DAY = SECONDS_PER_HOUR * HOURS_PER_DAY;
-	private static final long MILLIS_PER_SECOND = 1000L;
-	private static final long MILLIS_PER_MINUTE = SECONDS_PER_MINUTE * MILLIS_PER_SECOND;
-	private static final long MILLIS_PER_HOUR = SECONDS_PER_HOUR * MILLIS_PER_SECOND;
-	private static final long MILLIS_PER_DAY = SECONDS_PER_DAY * MILLIS_PER_SECOND;
-	private static final long MILLIS_PER_YEAR_365 = 365 * MILLIS_PER_DAY;
-
-	private static final Set<Integer> LEAP_YEAR_INCLUSIVE;
-	private static final Map<Integer, Integer> LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE;
-	static {
-		final HashSet<Integer> leapYears = new HashSet<>();
-		final HashMap<Integer, Integer> leapDaysSince = new HashMap<>();
-		int leapYearCounter = 0;
-		for (int year = 1970; year <= 2100; year++) {
-			if (Year.isLeap(year)) {
-				leapYears.add(year);
-				leapYearCounter++;
-			}
-			leapDaysSince.put(year, leapYearCounter);
-		}
-		LEAP_YEAR_INCLUSIVE = Collections.unmodifiableSet(leapYears);
-		LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE = Collections.unmodifiableMap(leapDaysSince);
-	}
-
-	private static final Map<Integer, Integer> DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE;
-	static {
-		final HashMap<Integer, Integer> map = new HashMap<>();
-		map.put(0, 0);
-		map.put(1, 31);
-		map.put(2, map.get(1) + 28); // 29 handled by leap years
-		map.put(3, map.get(2) + 31);
-		map.put(4, map.get(3) + 30);
-		map.put(5, map.get(4) + 31);
-		map.put(6, map.get(5) + 30);
-		map.put(7, map.get(6) + 31);
-		map.put(8, map.get(7) + 31);
-		map.put(9, map.get(8) + 30);
-		map.put(10, map.get(9) + 31);
-		map.put(11, map.get(10) + 30);
-		map.put(12, map.get(11) + 31);
-		DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE = Collections.unmodifiableMap(map);
-	}
-
 	private static final long toMillisSinceEpoch(
 			final int year,
 			final int month,
@@ -485,14 +352,14 @@ public class DataUtilsPerformance {
 			final int min,
 			final int sec) {
 
-		return (year - 1970) * MILLIS_PER_YEAR_365 // epoch is 1970-01-01 00:00:00 GMT
-				+ LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE.get(year - 1) * MILLIS_PER_DAY // only till last year
-				+ (month > 2 && LEAP_YEAR_INCLUSIVE.contains(year) ? MILLIS_PER_DAY : 0) // this year is leap year AND after February
-				+ DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE.get(month - 1) * MILLIS_PER_DAY
-				+ (date - 1) * MILLIS_PER_DAY
-				+ hrs * MILLIS_PER_HOUR
-				+ min * MILLIS_PER_MINUTE
-				+ sec * MILLIS_PER_SECOND;
+		return (year - 1970) * Constants.MILLIS_PER_YEAR_365 // epoch is 1970-01-01 00:00:00 GMT
+				+ Constants.LEAP_DAYS_SINCE_EPOCH_PER_YEAR_INCLUSIVE.get(year - 1) * Constants.MILLIS_PER_DAY // only till last year
+				+ (month > 2 && Constants.LEAP_YEAR_INCLUSIVE.contains(year) ? Constants.MILLIS_PER_DAY : 0) // this year is leap year AND after February
+				+ Constants.DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE.get(month - 1) * Constants.MILLIS_PER_DAY
+				+ (date - 1) * Constants.MILLIS_PER_DAY
+				+ hrs * Constants.MILLIS_PER_HOUR
+				+ min * Constants.MILLIS_PER_MINUTE
+				+ sec * Constants.MILLIS_PER_SECOND;
 	}
 
 	private static final long parseStringToMillisSinceEpoch1(
@@ -511,10 +378,10 @@ public class DataUtilsPerformance {
 			final String string) {
 
 		return toMillisSinceEpoch(
-				parseStringToInteger1(string, 0, 4), // year   
-				parseStringToInteger1(string, 5, 7), // month  
-				parseStringToInteger1(string, 8, 10), // date   
-				parseStringToInteger1(string, 11, 13), // hours  
+				parseStringToInteger1(string, 0, 4), // year
+				parseStringToInteger1(string, 5, 7), // month
+				parseStringToInteger1(string, 8, 10), // date
+				parseStringToInteger1(string, 11, 13), // hours
 				parseStringToInteger1(string, 14, 16), // minutes
 				parseStringToInteger1(string, 17, 19)); // seconds
 	}
@@ -523,17 +390,17 @@ public class DataUtilsPerformance {
 			final String string) {
 
 		return toMillisSinceEpoch(
-				parseStringToInteger2(string, 0, 4), // year   
-				parseStringToInteger2(string, 5, 7), // month  
-				parseStringToInteger2(string, 8, 10), // date   
-				parseStringToInteger2(string, 11, 13), // hours  
+				parseStringToInteger2(string, 0, 4), // year
+				parseStringToInteger2(string, 5, 7), // month
+				parseStringToInteger2(string, 8, 10), // date
+				parseStringToInteger2(string, 11, 13), // hours
 				parseStringToInteger2(string, 14, 16), // minutes
 				parseStringToInteger2(string, 17, 19)); // seconds
 	}
 
 	// String to Integer parsing methods ///////////////////////////////////////////////////////////
 
-	private static int parseStringToInteger1(
+	private static final int parseStringToInteger1(
 			final String string,
 			final int indexBegin,
 			final int indexEnd) {
@@ -545,7 +412,7 @@ public class DataUtilsPerformance {
 		return number;
 	}
 
-	private static int parseStringToInteger2(
+	private static final int parseStringToInteger2(
 			final String string,
 			final int indexBegin,
 			final int indexEnd) {
@@ -559,7 +426,7 @@ public class DataUtilsPerformance {
 
 	// String to Double parsing methods ////////////////////////////////////////////////////////////
 
-	private static double parseStringToDouble1(
+	private static final double parseStringToDouble1(
 			final String string) {
 
 		int indexOfDelimeter = string.indexOf(".");
@@ -588,7 +455,7 @@ public class DataUtilsPerformance {
 		return new BigDecimal(numberDecimal).movePointLeft(move).add(new BigDecimal(numberInteger)).doubleValue();
 	}
 
-	private static double parseStringToDouble2(
+	private static final double parseStringToDouble2(
 			final String string,
 			final int indexBegin,
 			final int indexEnd) {
@@ -606,7 +473,7 @@ public class DataUtilsPerformance {
 		return dividend / divisor;
 	}
 
-	private static double parseStringToDouble3(
+	private static final double parseStringToDouble3(
 			final String string,
 			final int indexBegin,
 			final int indexEnd) {
@@ -627,7 +494,7 @@ public class DataUtilsPerformance {
 		return dividend / divisor;
 	}
 
-	private static double parseStringToDouble4(
+	private static final double parseStringToDouble4(
 			final String string,
 			final int indexBegin,
 			final int indexEnd) {
@@ -647,7 +514,7 @@ public class DataUtilsPerformance {
 		return (double) dividend / divisor;
 	}
 
-	private static double parseStringToDouble5(
+	private static final double parseStringToDouble5(
 			final String string,
 			final int indexBegin,
 			final int indexEnd) {
@@ -672,86 +539,6 @@ public class DataUtilsPerformance {
 			dividend = (dividend << 1) + (dividend << 3) + (character - 48); // numbers start at 48 in ASCII
 		}
 		return dividend / divisor;
-	}
-
-	// inner classes ///////////////////////////////////////////////////////////////////////////////
-
-	private static final class Bar {
-
-		// fields //////////////////////////////////////////////////////////////////////////////////
-
-		public final long time;
-		public final double open;
-		public final double high;
-		public final double low;
-		public final double close;
-		public final double volume;
-
-		// constructors ////////////////////////////////////////////////////////////////////////////
-
-		public Bar(
-				final long time,
-				final double open,
-				final double high,
-				final double low,
-				final double close,
-				final double volume) {
-
-			this.time = time;
-			this.open = open;
-			this.high = high;
-			this.low = low;
-			this.close = close;
-			this.volume = volume;
-		}
-
-		// methods /////////////////////////////////////////////////////////////////////////////////
-
-		@Override
-		public boolean equals(
-				final Object obj) {
-
-			if (this == obj) {
-				return true;
-			}
-
-			if (!(obj instanceof Bar)) {
-				return false;
-			}
-
-			final Bar other = (Bar) obj;
-			return time == other.time
-					&& open == other.open
-					&& high == other.high
-					&& low == other.low
-					&& close == other.close
-					&& volume == other.volume;
-		}
-
-		@Override
-		public int hashCode() {
-			int result = 17;
-
-			result = 31 * result + (int) (time ^ time >>> 32);
-
-			final long openLong = Double.doubleToLongBits(open);
-			result = 31 * result + (int) (openLong ^ openLong >>> 32);
-
-			final long highLong = Double.doubleToLongBits(high);
-			result = 31 * result + (int) (highLong ^ highLong >>> 32);
-
-			final long lowLong = Double.doubleToLongBits(low);
-			result = 31 * result + (int) (lowLong ^ lowLong >>> 32);
-
-			final long closeLong = Double.doubleToLongBits(close);
-			result = 31 * result + (int) (closeLong ^ closeLong >>> 32);
-
-			final long volumeLong = Double.doubleToLongBits(volume);
-			result = 31 * result + (int) (volumeLong ^ volumeLong >>> 32);
-
-			return result;
-		}
-
 	}
 
 }
