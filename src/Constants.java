@@ -86,4 +86,8 @@ public class Constants {
 		DAYS_SINCE_JANUARY_1ST_PER_MONTH_INCLUSIVE = Collections.unmodifiableMap(map);
 	}
 
+	// constructors ////////////////////////////////////////////////////////////////////////////////
+
+	private Constants() {}
+
 }
