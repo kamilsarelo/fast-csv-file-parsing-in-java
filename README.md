@@ -2,6 +2,15 @@
 
 As part of a bigger side-project I am working on, I investigated several ways to improve the reading- and parsing-performance of CSV-files with specific schemas in Java.
 
+With using `java.io.BufferedReader.readLine()`, replacing `java.text.SimpleDateFormat.parse()`, `java.lang.Double.parseDouble()`, and `java.lang.Integer.parseInt()` and a few further tweaks I was able to significantly improve the reading- and parsing-performance of CSV-files with specific schemas. In my specfic case I reduced the total execution time of the code by almost impressive 80%:
+
+methods: | `read1()` + `parse1()` | `read4()` + `parse10()`
+--: | :--: | :--:
+average read per pass: | 668 ms (worst) | **137 ms (best)**
+percent change: | baseline | **-79,4%**
+
+## Data
+
 My CSV-files contain prices of financial instruments in a specific time resolution and have the following schema:
 - date and time at close (`yyyy.MM.dd HH:mm:ss`)
 - four prices for the time bucket: open, high, low, and close (`double`)
@@ -35,9 +44,18 @@ The corresponding Java code including the read/parse-optimizations can be found 
 - the [Apache Commons Mathematics Library](https://commons.apache.org/proper/commons-math/) for calculating the benchmark numbers
 - other than that everything is pure Java standard library
 
-## Reading
+---
 
-### Step 1: Use `java.nio.file.Files.readAllLines()`
+## Improving reading performance
+
+**Reading performance comparison:**
+
+methods: | `read1()` | `read2()` | `read3()` | `read4()`
+--: | :--: | :--: | :--: | :--:
+average read per pass: | 79 ms | 82 ms | 82 ms | **56 ms**
+percent change: | baseline | +3,8% | +3,8% | **-29,1%**
+
+### Step 1: Establish a baseline with `java.nio.file.Files.readAllLines()`
 
 For the reading-part let's start with a straightforward approach provided by the Java NIO's `Files` class:
 
@@ -103,14 +121,9 @@ private static final List<String> read4(final Path path) {
 
 **`read4()`** returns an average reading performance of **56 ms per pass** and is the winner here so stick with this approach.
 
-### Reading performance comparison
+---
 
-measurement | `read1()` | `read2()` | `read3()` | `read4()`
--- | -- | -- | -- | --
-average read per pass | 79 ms | 82 ms | 82 ms | **56 ms**
-percent change | baseline | +3,8% | +3,8% | **-29,1%**
-
-## Parsing
+## Improving parsing performance
 
 The goal in the parsing-part is to convert every read line from the CSV-file to an instance of the OHLC `Bar` class in the fastest possible manner and return a list of these - corresponding to the CSV-file's OHLC bar data. The full Java code can be found in the [CsvReadParsePerformance](/src/CsvReadParsePerformance.java) class.
 
@@ -127,8 +140,14 @@ private static final class Bar {
 	...
 }
 ```
+**Parsing performance comparison:**
 
-### Step 1: Use `java.text.SimpleDateFormat` and `java.lang.Double`
+methods: | `parse1()` | `parse2()` | `parse3()` | `parse4()` | `parse5()` | `parse6()` | `parse7()` | `parse8()` | `parse9()` | `parse10()`
+--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--:
+average parse per pass: | 559 ms | 552 ms | 203 ms | 171 ms | 174 ms | 160 ms | 116 ms | 74 ms | 75 ms | **69 ms**
+percent change: | baseline | -1,2% | -63,6% | -69,4% | -68,8% | -71,3% | -79,2% | -86,7% | -86,5% | **-87,6%**
+
+### Step 1: Establish a baseline with `java.text.SimpleDateFormat.parse()` and `java.lang.Double.parseDouble()`
 
 Let's start with a straightforward approach provided by the Java standard library's `SimpleDateFormat` and `Double` classes:
 
@@ -352,7 +371,7 @@ The new parsing method `parse5()` calls another new method `parseStringToMillisS
 
 **`parse5()`** returns an average parsing performance of **174 ms per pass** which is basically the same as in **`parse4()`**.
 
-### Step 6: Replace `Double.parseDouble()` with `java.math.BigDecimal`
+### Step 6: Replace `java.lang.Double.parseDouble()` with `java.math.BigDecimal`
 
 **Now let's focus on optimizing the parsing of the prices and volume (`double`)**, let's check if replacing `Double.parseDouble()` can improve the performance somehow. Since there are know [Java issues](https://stackoverflow.com/questions/179427/how-to-resolve-a-java-rounding-double-issue) [and errors with rounding doubles](https://www.geeksforgeeks.org/rounding-off-errors-java/) and using [double for monetary calculations is troublesome](https://dzone.com/articles/never-use-float-and-double-for-monetary-calculatio) let's first try to use `BigDecimal` instead of `Double.parseDouble()` in the new method `parseStringToDouble1()`. The method builds two variables (`long`) from the passed string (integer part and decimal part) and uses decimal power multiplication and `BigDecimal` to return the actual combined number (`double`):
 
@@ -525,22 +544,4 @@ The new parsing method `parse10()` calls `parseStringToDouble5()` to parse the p
 
 **`parse10()`** returns an average parsing performance of **69 ms per pass** which is a final slight improvement compared to **`parse8()`** and **`parse9()`** so stick with this approach.
 
-### Parsing performance comparison
-
-measurement | `parse1()` | `parse2()` | `parse3()` | `parse4()` | `parse5()` | `parse6()` | `parse7()` | `parse8()` | `parse9()` | `parse10()`
--- | -- | -- | -- | -- | -- | -- | -- | -- | -- | --
-average parse per pass | 559 ms | 552 ms | 203 ms | 171 ms | 174 ms | 160 ms | 116 ms | 74 ms | 75 ms | **69 ms**
-percent change | baseline | -1,2% | -63,6% | -69,4% | -68,8% | -71,3% | -79,2% | -86,7% | -86,5% | **-87,6%**
-
-## Conclusion
-
-With a few tweaks it is possible to significantly improve the reading- and parsing-performance of CSV-files with specific schemas in Java. In my case I was able to reduce the total execution time of the code by almost impressive 80%:
-
-measurement | methods `read1()` and `parse1()` | methods `read4()` and `parse10()`
--- | -- | --
-average read per pass | 668 ms | **137 ms**
-percent change | baseline | **-79,4%**
-
-Another idea to even further bring the execution time down would be reading and parsing the files in multiple parallel threads.
-
-I hope this contribution can help you improve the execution time of your code in similar use cases or simply give you some ideas on general performance improvements 😉
+**Step 10** was my final step in the series of parsing improvements. However, another idea to even further bring down the execution time would be for example reading and parsing the CSV-files in multiple parallel threads.
