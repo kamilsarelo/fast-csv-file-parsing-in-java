@@ -57,7 +57,7 @@ Other than that everything is pure Java standard library.
 
 Here is the **reading performance comparison** of the different approaches that are described in detail afterwards:
 
-methods: | `read1()` | `read2()` | `read3()` | `read4()`
+method: | `read1()` | `read2()` | `read3()` | `read4()`
 --: | :--: | :--: | :--: | :--:
 average read per pass: | 79 ms | 82 ms | 82 ms | **56 ms**
 percent change: | baseline | +3,8% | +3,8% | **-29,1%**
@@ -149,7 +149,7 @@ public final class Bar {
 ```
 Here is the **parsing performance comparison** of the different approaches that are described in detail afterwards:
 
-methods: | `parse1()` | `parse2()` | `parse3()` | `parse4()` | `parse5()` | `parse6()` | `parse7()` | `parse8()` | `parse9()` | `parse10()`
+method: | `parse1()` | `parse2()` | `parse3()` | `parse4()` | `parse5()` | `parse6()` | `parse7()` | `parse8()` | `parse9()` | `parse10()`
 --: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--: | :--:
 average parse per pass: | 559 ms | 552 ms | 203 ms | 171 ms | 174 ms | 160 ms | 116 ms | 74 ms | 75 ms | **69 ms**
 percent change: | baseline | -1,2% | -63,6% | -69,4% | -68,8% | -71,3% | -79,2% | -86,7% | -86,5% | **-87,6%**
