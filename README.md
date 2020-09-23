@@ -126,6 +126,8 @@ public static final List<String> read4(final Path path) {
 }
 ```
 
+`LinkedList` is used in this approach for fast insertion of the read lines, whereas `ArrayList` is used later to store the parsed objects ensuring fast access.
+
 **`read4()`** returns an average reading performance of **56 ms per pass** and is the winner here so stick with this approach.
 
 ---
